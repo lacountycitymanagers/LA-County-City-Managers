@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LA County City Managers Database</title>
+  <meta name="description" content="Tracking leadership updates across all 88 cities in Los Angeles County." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" />
+</head>
+
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <img class="brand-logo" src="assets/logo.png" alt="LA County City Managers logo" />
+      <div class="brand-text">
+        <h1>LA County City Managers Database</h1>
+        <p>Leadership updates across all 88 cities in Los Angeles County</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <a class="btn" href="data/la_county_city_managers.csv" download>Download CSV</a>
+      <a class="btn btn-ghost" href="#" id="copyLink">Copy Page Link</a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>About</h2>
+      <p>
+        This public resource tracks City Manager leadership changes across LA County’s 88 cities,
+        including appointments, transitions, interim service, and key notes with sources.
+      </p>
+      <div class="meta">
+        <span><strong>Data source:</strong> Public records &amp; city announcements</span>
+        <span><strong>Last updated:</strong> <span id="lastUpdated">—</span></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="table-top">
+        <h2>Database</h2>
+        <div class="small-note">Search, sort, and export via CSV download.</div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="cmTable" class="display" style="width:100%">
+          <thead id="cmThead"></thead>
+          <tbody id="cmTbody"></tbody>
+        </table>
+      </div>
+
+      <p class="footer-note">
+        Spotted an update? Share a public link/source and we’ll verify and update.
+      </p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div>© <span id="year"></span> LA County City Managers</div>
+  </footer>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    // ✅ Put your CSV here:
+    const CSV_PATH = "data/la_county_city_managers.csv";
+
+    // ✅ Hide Column N (14th column) by default.
+    // DataTables uses 0-based indexing: A=0 ... N=13
+    const HIDE_COLUMN_INDEX = 13;
+
+    function setLastUpdated() {
+      const d = new Date(document.lastModified);
+      document.getElementById("lastUpdated").textContent = d.toLocaleDateString(undefined, {
+        year: "numeric", month: "short", day: "numeric"
+      });
+    }
+
+    async function loadCSV() {
+      return new Promise((resolve, reject) => {
+        Papa.parse(CSV_PATH, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => resolve(results.data),
+          error: reject
+        });
+      });
+    }
+
+    function buildTable(data) {
+      if (!data || !data.length) return;
+
+      const columns = Object.keys(data[0]);
+
+      // Build thead
+      document.getElementById("cmThead").innerHTML =
+        `<tr>${columns.map(c => `<th>${c}</th>`).join("")}</tr>`;
+
+      // Build tbody
+      document.getElementById("cmTbody").innerHTML = data.map(row => {
+        return `<tr>${columns.map(c => `<td>${(row[c] ?? "").toString()}</td>`).join("")}</tr>`;
+      }).join("");
+
+      // Activate DataTables
+      $("#cmTable").DataTable({
+        pageLength: 25,
+        lengthMenu: [10, 25, 50, 100],
+        order: [],
+        responsive: true,
+        columnDefs: [
+          {
+            targets: [HIDE_COLUMN_INDEX],
+            visible: false,
+            searchable: false
+          }
+        ]
+      });
+    }
+
+    function wireCopyLink() {
+      const btn = document.getElementById("copyLink");
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        try {
+          await navigator.clipboard.writeText(window.location.href);
+          btn.textContent = "Link Copied ✅";
+          setTimeout(() => btn.textContent = "Copy Page Link", 1500);
+        } catch {
+          alert("Copy failed. You can manually copy the URL from your browser.");
+        }
+      });
+    }
+
+    (async function init() {
+      document.getElementById("year").textContent = new Date().getFullYear();
+      setLastUpdated();
+      wireCopyLink();
+
+      try {
+        const data = await loadCSV();
+        buildTable(data);
+      } catch (err) {
+        console.error(err);
+        document.querySelector(".table-wrap").innerHTML =
+          "<div class='error'>Could not load the CSV. Confirm the file path is <code>data/la_county_city_managers.csv</code>.</div>";
+      }
+    })();
+  </script>
+</body>
+</html>
